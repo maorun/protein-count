@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Track your daily protein intake. Simple, fast, offline-ready." />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Protein" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <title>Protein Counter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header>
+    <h1>🥗 Protein Counter</h1>
+    <div class="header-actions">
+      <button class="icon-btn" id="reset-btn" title="Reset today" aria-label="Reset today's count">↺</button>
+      <button class="icon-btn" id="manage-btn" title="Manage foods" aria-label="Manage foods">🍽</button>
+      <button class="icon-btn" id="settings-btn" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Progress card ──────────────────────────────────────── -->
+  <div class="progress-card" role="region" aria-label="Daily progress">
+    <div class="progress-numbers">
+      <span class="progress-current" id="progress-current">0</span>
+      <span class="progress-sep">/</span>
+      <span class="progress-goal" id="progress-goal">160</span>
+      <span class="progress-unit">g protein</span>
+    </div>
+    <p class="progress-label" id="progress-remaining">160g remaining</p>
+    <div class="progress-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-stats">
+      <span>Today's progress</span>
+      <span id="progress-pct">0%</span>
+    </div>
+  </div>
+
+  <!-- ── Quick add ──────────────────────────────────────────── -->
+  <div class="section-title">
+    <h2>Quick Add</h2>
+  </div>
+  <div class="quick-add">
+    <div class="input-row">
+      <div class="input-with-label">
+        <label for="protein-amount">Grams of protein</label>
+        <input type="number" id="protein-amount" placeholder="e.g. 30"
+               min="1" max="9999" inputmode="decimal" />
+      </div>
+      <div class="input-with-label">
+        <label for="protein-label">Label (optional)</label>
+        <input type="text" id="protein-label" placeholder="e.g. Chicken" maxlength="60" />
+      </div>
+    </div>
+    <div class="save-btn-wrap">
+      <button class="btn btn-primary" id="save-btn">＋ Add</button>
+    </div>
+  </div>
+
+  <!-- ── Favorite / All foods ───────────────────────────────── -->
+  <div class="section-title">
+    <h2>Foods</h2>
+    <button id="open-manage-inline" onclick="document.getElementById('manage-btn').click()">Manage</button>
+  </div>
+  <div class="foods-grid" id="foods-grid" role="list"></div>
+  <div id="foods-toggle-wrap"></div>
+
+  <!-- ── Today's log ────────────────────────────────────────── -->
+  <div class="section-title">
+    <h2>Today's Log</h2>
+  </div>
+  <div class="log-list" id="log-list" role="list"></div>
+
+</div><!-- /#app -->
+
+<!-- ════════════════════════════════════════════════════════════
+     SETTINGS MODAL
+═════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="settings-title">⚙ Settings</h2>
+      <button class="modal-close" aria-label="Close settings">✕</button>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Daily Goal</div>
+        <div class="setting-desc">Target grams of protein per day</div>
+      </div>
+      <div class="setting-value">
+        <input type="number" id="goal-input" value="160" min="1" max="9999" inputmode="decimal" />
+        <span style="color:var(--text-muted);font-size:.85rem">g</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.querySelector('#settings-modal .modal-close').click()">Cancel</button>
+      <button class="btn btn-primary" id="settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     MANAGE FOODS MODAL
+═════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="manage-modal" role="dialog" aria-modal="true" aria-labelledby="manage-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="manage-title">🍽 Manage Foods</h2>
+      <button class="modal-close" aria-label="Close food manager">✕</button>
+    </div>
+
+    <div class="manage-list" id="manage-list" role="list"></div>
+
+    <button class="btn btn-primary" id="add-food-btn" style="width:100%">＋ Add New Food</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FOOD FORM MODAL (add / edit)
+═════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="food-form-modal" role="dialog" aria-modal="true" aria-labelledby="food-form-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="food-form-title">New Food</h2>
+      <button class="modal-close" aria-label="Close food form">✕</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label for="food-name">Food name</label>
+        <input type="text" id="food-name" placeholder="e.g. Salmon (100g)" maxlength="60" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label for="food-protein">Protein (g)</label>
+        <input type="number" id="food-protein" placeholder="e.g. 20" min="1" max="9999" inputmode="decimal" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Icon &nbsp;<span id="selected-emoji" style="font-size:1.3rem">🥚</span></label>
+      <div class="emoji-row" id="emoji-picker"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.querySelector('#food-form-modal .modal-close').click()">Cancel</button>
+      <button class="btn btn-primary" id="food-form-save">Save Food</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     CONFIRM DIALOG
+═════════════════════════════════════════════════════════════ -->
+<div class="confirm-backdrop" id="confirm-backdrop" role="dialog" aria-modal="true">
+  <div class="confirm-box">
+    <h3>Are you sure?</h3>
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger"    id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────── -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
