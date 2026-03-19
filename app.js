@@ -284,6 +284,10 @@ function bindEvents() {
     qs('#protein-label').value  = '';
   });
 
+  // Quick +5g / +10g buttons
+  qs('#quick-add-5').addEventListener('click', () => addEntry(5, 'Quick +5g'));
+  qs('#quick-add-10').addEventListener('click', () => addEntry(10, 'Quick +10g'));
+
   // Enter key in amount input
   qs('#protein-amount').addEventListener('keydown', e => {
     if (e.key === 'Enter') qs('#save-btn').click();
