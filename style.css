@@ -259,6 +259,21 @@ input[type="text"]:focus {
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
 .btn-icon { padding: 6px 10px; }
 
+.quick-btns-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.btn-quick {
+  background: var(--surface2);
+  color: var(--green-400);
+  border: 1px solid var(--green-600);
+  flex: 1;
+}
+.btn-quick:hover { background: rgba(16,185,129,.15); border-color: var(--green-400); }
+.btn-quick:active { transform: scale(.97); }
+
 .save-btn-wrap { display: flex; justify-content: flex-end; }
 
 /* ── Food grid (favorites + all) ────────────────────────────── */
