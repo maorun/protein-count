@@ -361,7 +361,7 @@ function bindEvents() {
     if (!protein || protein < 1 || protein > 9999) { showToast('Enter valid protein (1–9999)'); return; }
 
     const food = {
-      id:       state.editingFoodId ?? (Math.max(0, ...state.foods.map(f => f.id)) + 1),
+      id:       state.editingFoodId ?? (Math.max(0, ...state.foods.map(f => f.id || 0)) + 1),
       name,
       protein,
       favorite: state.editingFoodId
