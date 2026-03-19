@@ -2,7 +2,7 @@
 'use strict';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const STORAGE_KEYS = { data: 'proteinData', foods: 'foods', settings: 'settings' };
+const STORAGE_KEYS = { data: 'proteinData', foods: 'foods', settings: 'settings', history: 'proteinHistory' };
 const DEFAULT_GOAL = 160;
 const DEFAULT_FOODS = [
   { id: 1, name: 'Egg',                    protein: 6,  favorite: true,  icon: '🥚' },
@@ -20,7 +20,8 @@ const EMOJI_OPTIONS = ['🥚','🍗','🥩','🐟','🧀','🥛','🫙','🥜','
 let state = {
   data:     null,   // { date, entries, total }
   foods:    [],
-  settings: { dailyGoal: DEFAULT_GOAL },
+  settings: { dailyGoal: DEFAULT_GOAL, theme: 'dark', bodyWeight: null },
+  history:  [],     // [{ date, total, goal }, …] up to 90 entries
   showAllFoods: false,
   editingFoodId: null,
   confirmCallback: null,
@@ -45,20 +46,64 @@ function initData() {
   const stored = load(STORAGE_KEYS.data, null);
   const date = today();
   if (stored && stored.date === date) return stored;
-  // New day — fresh slate
+  // New day — archive previous day to history before resetting
+  if (stored) pushToHistory(stored);
   return { date, entries: [], total: 0 };
+}
+
+// ── History helpers ────────────────────────────────────────────────────────
+function pushToHistory(dayData) {
+  if (!dayData || !dayData.date) return;
+  const entry = { date: dayData.date, total: dayData.total || 0, goal: state.settings.dailyGoal };
+  const idx = state.history.findIndex(h => h.date === dayData.date);
+  if (idx >= 0) {
+    state.history[idx] = entry;
+  } else {
+    state.history.push(entry);
+  }
+  state.history.sort((a, b) => a.date.localeCompare(b.date));
+  while (state.history.length > 90) state.history.shift();
+  save(STORAGE_KEYS.history, state.history);
+}
+
+function calculateStreak() {
+  // Build a fast lookup including today's live data
+  const histMap = {};
+  state.history.forEach(h => { histMap[h.date] = h; });
+  histMap[state.data.date] = { date: state.data.date, total: state.data.total, goal: state.settings.dailyGoal };
+
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const dateStr = d.toISOString().slice(0, 10);
+    const entry = histMap[dateStr];
+    if (!entry || entry.total < entry.goal) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
 }
 
 // ── Initialise ─────────────────────────────────────────────────────────────
 function init() {
-  state.settings = load(STORAGE_KEYS.settings, { dailyGoal: DEFAULT_GOAL });
-  state.foods     = load(STORAGE_KEYS.foods, DEFAULT_FOODS);
-  state.data      = initData();
+  state.settings = load(STORAGE_KEYS.settings, { dailyGoal: DEFAULT_GOAL, theme: 'dark', bodyWeight: null });
+  // Fill in any settings keys added after initial install
+  state.settings.theme      = state.settings.theme      ?? 'dark';
+  state.settings.bodyWeight = state.settings.bodyWeight ?? null;
+  state.history  = load(STORAGE_KEYS.history, []);
+  state.foods    = load(STORAGE_KEYS.foods, DEFAULT_FOODS);
+  state.data     = initData();
   save(STORAGE_KEYS.data, state.data);
 
+  applyTheme(state.settings.theme);
   registerSW();
   bindEvents();
   render();
+}
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
 }
 
 // ── Service worker ─────────────────────────────────────────────────────────
@@ -91,6 +136,19 @@ function renderProgress() {
   fill.style.width = `${pct}%`;
   fill.classList.toggle('over-goal', total >= goal);
   qs('#progress-pct').textContent = `${Math.round(pct)}%`;
+  qs('#progress-bar-track').setAttribute('aria-valuenow', Math.round(pct));
+
+  const streak = calculateStreak();
+  const streakEl = qs('#streak-badge');
+  if (streakEl) {
+    if (streak > 0) {
+      streakEl.textContent = streak === 1 ? `🔥 1 day streak` : `🔥 ${streak} day streak`;
+      streakEl.style.display = '';
+    } else {
+      streakEl.textContent = '';
+      streakEl.style.display = 'none';
+    }
+  }
 }
 
 function renderFoods() {
@@ -247,10 +305,193 @@ function saveSettings() {
   const val = parseInt(qs('#goal-input').value, 10);
   if (!val || val < 1 || val > 9999) { showToast('Enter a valid goal (1–9999)'); return; }
   state.settings.dailyGoal = val;
+
+  const theme = qs('#theme-select').value;
+  state.settings.theme = theme;
+  applyTheme(theme);
+
+  const weightVal = parseInt(qs('#weight-input').value, 10);
+  state.settings.bodyWeight = (weightVal >= 30 && weightVal <= 300) ? weightVal : null;
+
   save(STORAGE_KEYS.settings, state.settings);
   renderProgress();
   closeModal('settings-modal');
-  showToast('Goal updated ✓');
+  showToast('Settings saved ✓');
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function exportData(format) {
+  // Merge history with today's live data
+  const allHistory = state.history.filter(h => h.date !== state.data.date);
+  if (state.data.total > 0 || state.data.entries.length > 0) {
+    allHistory.push({ date: state.data.date, total: state.data.total, goal: state.settings.dailyGoal });
+  }
+  allHistory.sort((a, b) => a.date.localeCompare(b.date));
+
+  if (format === 'json') {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      settings: state.settings,
+      history: allHistory,
+      foods: state.foods,
+    };
+    downloadFile(JSON.stringify(payload, null, 2), 'protein-data.json', 'application/json');
+  } else {
+    const header = 'Date,Total (g),Goal (g),Met Goal\n';
+    const rows = allHistory.map(r =>
+      `${r.date},${r.total},${r.goal},${r.total >= r.goal ? 'Yes' : 'No'}`
+    ).join('\n');
+    downloadFile(header + rows, 'protein-data.csv', 'text/csv');
+  }
+  showToast('Data exported ✓');
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── History modal ──────────────────────────────────────────────────────────
+function renderHistoryModal() {
+  const streak = calculateStreak();
+  qs('#history-streak').textContent = streak > 0
+    ? (streak === 1 ? `🔥 1 day streak` : `🔥 ${streak} day streak`)
+    : 'No streak yet — hit your goal today!';
+  drawHistoryChart();
+}
+
+function drawHistoryChart() {
+  const canvas = qs('#history-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.parentElement.clientWidth || 320;
+  const H   = 180;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  // Build last 7 days data
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const isToday = dateStr === state.data.date;
+    let total = 0;
+    let goal  = state.settings.dailyGoal;
+    if (isToday) {
+      total = state.data.total;
+    } else {
+      const hist = state.history.find(h => h.date === dateStr);
+      if (hist) { total = hist.total; goal = hist.goal; }
+    }
+    const dayName = d.toLocaleDateString('en', { weekday: 'short' });
+    days.push({ dayName, total, goal, isToday });
+  }
+
+  const maxVal = Math.max(...days.map(d => Math.max(d.total, d.goal)), 1);
+  const pad    = { top: 24, right: 12, bottom: 36, left: 38 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const barGap = chartW / days.length;
+  const barW   = barGap * 0.6;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Read CSS variables for colours
+  const cs     = getComputedStyle(document.documentElement);
+  const green  = cs.getPropertyValue('--green-400').trim()  || '#34d399';
+  const orange = cs.getPropertyValue('--warning').trim()    || '#fbbf24';
+  const muted  = cs.getPropertyValue('--text-muted').trim() || '#94a3b8';
+  const text   = cs.getPropertyValue('--text').trim()       || '#f1f5f9';
+  const border = cs.getPropertyValue('--border').trim()     || '#475569';
+
+  // Grid lines + Y-axis labels
+  const ySteps = 4;
+  for (let i = 0; i <= ySteps; i++) {
+    const val  = Math.round((maxVal / ySteps) * i);
+    const y    = pad.top + chartH - (val / maxVal) * chartH;
+    ctx.save();
+    ctx.strokeStyle = border;
+    ctx.lineWidth   = 0.5;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + chartW, y);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle   = muted;
+    ctx.font        = '10px system-ui, sans-serif';
+    ctx.textAlign   = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(val + 'g', pad.left - 4, y);
+  }
+
+  // Goal dashed line
+  const goalY = pad.top + chartH - (state.settings.dailyGoal / maxVal) * chartH;
+  ctx.save();
+  ctx.strokeStyle = orange;
+  ctx.lineWidth   = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, goalY);
+  ctx.lineTo(pad.left + chartW, goalY);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle   = orange;
+  ctx.font        = '9px system-ui, sans-serif';
+  ctx.textAlign   = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('Goal', pad.left + 2, goalY - 3);
+
+  // Bars
+  days.forEach((day, i) => {
+    const x    = pad.left + i * barGap + (barGap - barW) / 2;
+    const barH = day.total > 0 ? Math.max((day.total / maxVal) * chartH, 2) : 0;
+    const y    = pad.top + chartH - barH;
+    const r    = Math.min(4, barW / 2);
+    const barColor = day.total >= day.goal ? green : (day.isToday ? '#60a5fa' : muted);
+
+    if (barH > 0) {
+      ctx.fillStyle = barColor;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + barW - r, y);
+      ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
+      ctx.lineTo(x + barW, pad.top + chartH);
+      ctx.lineTo(x, pad.top + chartH);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Value label
+    if (day.total > 0) {
+      ctx.fillStyle    = text;
+      ctx.font         = '9px system-ui, sans-serif';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(day.total + 'g', x + barW / 2, y - 3);
+    }
+
+    // Day label
+    ctx.fillStyle    = day.isToday ? text : muted;
+    ctx.font         = day.isToday ? 'bold 10px system-ui, sans-serif' : '10px system-ui, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(day.dayName, x + barW / 2, H - pad.bottom + 14);
+  });
 }
 
 // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -313,12 +554,33 @@ function bindEvents() {
 
   // Settings open
   qs('#settings-btn').addEventListener('click', () => {
-    qs('#goal-input').value = state.settings.dailyGoal;
+    qs('#goal-input').value   = state.settings.dailyGoal;
+    qs('#theme-select').value = state.settings.theme || 'dark';
+    qs('#weight-input').value = state.settings.bodyWeight || '';
     openModal('settings-modal');
   });
 
   // Settings save
   qs('#settings-save').addEventListener('click', saveSettings);
+
+  // Body-weight goal calculator
+  qs('#calc-goal-btn').addEventListener('click', () => {
+    const w = parseInt(qs('#weight-input').value, 10);
+    if (!w || w < 30 || w > 300) { showToast('Enter a valid weight (30–300 kg)'); return; }
+    qs('#goal-input').value = Math.round(w * 2);
+    showToast(`Goal set to ${Math.round(w * 2)}g (2 g/kg)`);
+  });
+
+  // History modal open
+  qs('#history-btn').addEventListener('click', () => {
+    openModal('history-modal');
+    // Two rAF frames ensure modal is visible before canvas is sized
+    requestAnimationFrame(() => requestAnimationFrame(renderHistoryModal));
+  });
+
+  // Export buttons
+  qs('#export-csv-btn').addEventListener('click', () => exportData('csv'));
+  qs('#export-json-btn').addEventListener('click', () => exportData('json'));
 
   // Reset today
   qs('#reset-btn').addEventListener('click', () => {

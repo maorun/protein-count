@@ -6,11 +6,11 @@ A living document of planned and potential features for the Protein Counter PWA.
 
 ## 📊 Data & History
 
-- [ ] **Charts & history view** — Weekly/monthly bar charts of protein intake (using Chart.js or Canvas API)
+- [x] **Charts & history view** — Weekly bar chart of protein intake via Canvas API (last 7 days, goal line)
 - [ ] **Calendar heatmap** — GitHub-style heatmap showing consistency over time
-- [ ] **Streaks** — Track consecutive days hitting the daily goal
+- [x] **Streaks** — Track consecutive days hitting the daily goal; 🔥 badge shown in progress card
 - [ ] **Personal records** — Highlight best days, longest streaks
-- [ ] **Export data** — Download as CSV or JSON for external analysis
+- [x] **Export data** — Download as CSV or JSON from Settings
 - [ ] **Import data** — Restore from exported backup file
 
 ---
@@ -47,7 +47,7 @@ A living document of planned and potential features for the Protein Counter PWA.
 ## 🎯 Goals & Profiles
 
 - [ ] **Multiple goals** — Separate goals for training days vs. rest days
-- [ ] **Body-weight–based goal** — Auto-calculate goal from weight (e.g., 2g/kg body weight)
+- [x] **Body-weight–based goal** — Auto-calculate goal from weight (2 g/kg) in Settings
 - [ ] **Multiple profiles** — Support family members or athletes sharing a device
 - [ ] **Goal history** — Track how the daily goal has changed over time
 
@@ -63,7 +63,7 @@ A living document of planned and potential features for the Protein Counter PWA.
 
 ## 🎨 UI / UX
 
-- [ ] **Dark / light / system theme** — Theme switcher
+- [x] **Dark / light / system theme** — Theme switcher in Settings
 - [ ] **Haptic feedback** — Vibration on successful log (mobile)
 - [ ] **Animations** — Confetti on hitting daily goal
 - [ ] **Widget** — Home-screen widget for quick glance (requires platform API)
@@ -74,7 +74,7 @@ A living document of planned and potential features for the Protein Counter PWA.
 
 ## ♿ Accessibility
 
-- [ ] **Screen-reader improvements** — Better ARIA labels and live region updates
+- [x] **Screen-reader improvements** — Better ARIA labels, `aria-live` on streak/toast, `aria-valuenow` on progress bar
 - [ ] **High-contrast mode** — Extra-high contrast theme for low vision users
 - [ ] **Font-size setting** — User-adjustable text size
 - [ ] **Voice input** — "Hey Siri, log 30 grams" via Web Speech API
