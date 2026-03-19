@@ -78,7 +78,7 @@ function render() {
 function renderProgress() {
   const { total } = state.data;
   const goal = state.settings.dailyGoal;
-  const pct = Math.min((total / goal) * 100, 100);
+  const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
 
   qs('#progress-current').textContent = total;
   qs('#progress-goal').textContent    = goal;
@@ -361,7 +361,7 @@ function bindEvents() {
     if (!protein || protein < 1 || protein > 9999) { showToast('Enter valid protein (1–9999)'); return; }
 
     const food = {
-      id:       state.editingFoodId ?? Date.now(),
+      id:       state.editingFoodId ?? (Math.max(0, ...state.foods.map(f => f.id)) + 1),
       name,
       protein,
       favorite: state.editingFoodId
