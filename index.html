@@ -23,6 +23,7 @@
   <header>
     <h1>🥗 Protein Counter</h1>
     <div class="header-actions">
+      <button class="icon-btn" id="history-btn" title="History" aria-label="View history">📊</button>
       <button class="icon-btn" id="reset-btn" title="Reset today" aria-label="Reset today's count">↺</button>
       <button class="icon-btn" id="manage-btn" title="Manage foods" aria-label="Manage foods">🍽</button>
       <button class="icon-btn" id="settings-btn" title="Settings" aria-label="Settings">⚙</button>
@@ -38,13 +39,16 @@
       <span class="progress-unit">g protein</span>
     </div>
     <p class="progress-label" id="progress-remaining">160g remaining</p>
-    <div class="progress-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="progress-bar-track" id="progress-bar-track" role="progressbar"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+         aria-label="Daily protein goal progress">
       <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
     </div>
     <div class="progress-stats">
       <span>Today's progress</span>
       <span id="progress-pct">0%</span>
     </div>
+    <p class="streak-badge" id="streak-badge" aria-live="polite" style="display:none"></p>
   </div>
 
   <!-- ── Quick add ──────────────────────────────────────────── -->
@@ -106,6 +110,44 @@
       <div class="setting-value">
         <input type="number" id="goal-input" value="160" min="1" max="9999" inputmode="decimal" />
         <span style="color:var(--text-muted);font-size:.85rem">g</span>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Body Weight</div>
+        <div class="setting-desc">Auto-calculate goal (2 g/kg)</div>
+      </div>
+      <div class="setting-value">
+        <input type="number" id="weight-input" placeholder="kg" min="30" max="300"
+               inputmode="decimal" aria-label="Body weight in kilograms" style="width:70px" />
+        <span style="color:var(--text-muted);font-size:.85rem">kg</span>
+        <button class="btn btn-sm btn-secondary" id="calc-goal-btn">Calc</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Theme</div>
+        <div class="setting-desc">App color scheme</div>
+      </div>
+      <div class="setting-value">
+        <select id="theme-select" class="setting-select" aria-label="Color theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="system">System</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Export Data</div>
+        <div class="setting-desc">Download your history</div>
+      </div>
+      <div class="setting-value" style="gap:6px">
+        <button class="btn btn-sm btn-secondary" id="export-csv-btn">CSV</button>
+        <button class="btn btn-sm btn-secondary" id="export-json-btn">JSON</button>
       </div>
     </div>
 
@@ -176,6 +218,24 @@
       <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
       <button class="btn btn-danger"    id="confirm-ok">Delete</button>
     </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     HISTORY MODAL
+═════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="history-title">📊 History</h2>
+      <button class="modal-close" aria-label="Close history">✕</button>
+    </div>
+    <p class="history-streak" id="history-streak" aria-live="polite"></p>
+    <div class="history-chart-wrap">
+      <canvas id="history-canvas" aria-label="Weekly protein intake chart"
+              aria-describedby="history-note" role="img"></canvas>
+    </div>
+    <p class="history-note" id="history-note">Last 7 days · dashed line = daily goal</p>
   </div>
 </div>
 

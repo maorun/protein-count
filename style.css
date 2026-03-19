@@ -576,6 +576,91 @@ input[type="text"]:focus {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
+/* ── Light theme ─────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg:        #f8fafc;
+  --surface:   #ffffff;
+  --surface2:  #f1f5f9;
+  --border:    #e2e8f0;
+  --text:      #0f172a;
+  --text-muted:#64748b;
+  --shadow:    0 4px 24px rgba(0,0,0,.12);
+}
+:root[data-theme="light"] .progress-card {
+  background: linear-gradient(135deg, #d1fae5 0%, #ccfbf1 100%);
+  border-color: var(--green-500);
+}
+:root[data-theme="light"] .progress-current { color: var(--green-600); }
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --bg:        #f8fafc;
+    --surface:   #ffffff;
+    --surface2:  #f1f5f9;
+    --border:    #e2e8f0;
+    --text:      #0f172a;
+    --text-muted:#64748b;
+    --shadow:    0 4px 24px rgba(0,0,0,.12);
+  }
+  :root[data-theme="system"] .progress-card {
+    background: linear-gradient(135deg, #d1fae5 0%, #ccfbf1 100%);
+    border-color: var(--green-500);
+  }
+  :root[data-theme="system"] .progress-current { color: var(--green-600); }
+}
+
+/* ── Streak badge ────────────────────────────────────────────── */
+.streak-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--warning);
+  margin-top: 8px;
+  min-height: 1.1em;
+}
+
+/* ── History modal ───────────────────────────────────────────── */
+.history-streak {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--warning);
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.history-chart-wrap {
+  width: 100%;
+  position: relative;
+}
+
+#history-canvas {
+  width: 100%;
+  display: block;
+}
+
+.history-note {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+/* ── Settings select ─────────────────────────────────────────── */
+.setting-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.setting-select:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.2);
+}
+
 /* ── Responsive tweaks ───────────────────────────────────────── */
 @media (min-width: 480px) {
   .foods-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
