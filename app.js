@@ -15,12 +15,14 @@ const DEFAULT_FOODS = [
   { id: 8, name: 'Milk (200ml)',            protein: 7,  favorite: false, icon: '🥛' },
 ];
 const EMOJI_OPTIONS = ['🥚','🍗','🥩','🐟','🧀','🥛','🫙','🥜','🍳','🫘','🦐','🥦','🥤','💊','🌮','🍱'];
+const MAX_HISTORY_DAYS = 90;
+const CONFETTI_COUNT = 72;
 
 // ── State ──────────────────────────────────────────────────────────────────
 let state = {
   data:     null,   // { date, entries, total }
   foods:    [],
-  settings: { dailyGoal: DEFAULT_GOAL, theme: 'dark', bodyWeight: null },
+  settings: { dailyGoal: DEFAULT_GOAL, theme: 'dark', bodyWeight: null, haptic: true, fontSize: 'medium' },
   history:  [],     // [{ date, total, goal }, …] up to 90 entries
   showAllFoods: false,
   editingFoodId: null,
@@ -62,7 +64,7 @@ function pushToHistory(dayData) {
     state.history.push(entry);
   }
   state.history.sort((a, b) => a.date.localeCompare(b.date));
-  while (state.history.length > 90) state.history.shift();
+  while (state.history.length > MAX_HISTORY_DAYS) state.history.shift();
   save(STORAGE_KEYS.history, state.history);
 }
 
@@ -90,12 +92,15 @@ function init() {
   // Fill in any settings keys added after initial install
   state.settings.theme      = state.settings.theme      ?? 'dark';
   state.settings.bodyWeight = state.settings.bodyWeight ?? null;
+  state.settings.haptic     = state.settings.haptic     ?? true;
+  state.settings.fontSize   = state.settings.fontSize   ?? 'medium';
   state.history  = load(STORAGE_KEYS.history, []);
   state.foods    = load(STORAGE_KEYS.foods, DEFAULT_FOODS);
   state.data     = initData();
   save(STORAGE_KEYS.data, state.data);
 
   applyTheme(state.settings.theme);
+  applyFontSize(state.settings.fontSize);
   registerSW();
   bindEvents();
   render();
@@ -104,6 +109,11 @@ function init() {
 // ── Theme ──────────────────────────────────────────────────────────────────
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+}
+
+// ── Font size ──────────────────────────────────────────────────────────────
+function applyFontSize(size) {
+  document.documentElement.dataset.fontSize = size || 'medium';
 }
 
 // ── Service worker ─────────────────────────────────────────────────────────
@@ -210,13 +220,16 @@ function addEntry(amount, label) {
   amount = Number(amount);
   if (!amount || amount <= 0 || amount > 9999) { showToast('Enter a valid amount (1–9999g)'); return; }
 
+  const prevTotal = state.data.total;
   const now = new Date();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   state.data.entries.push({ amount, label: label || 'Custom', time });
   state.data.total += amount;
   save(STORAGE_KEYS.data, state.data);
+  haptic(50);
   render();
   showToast(`+${amount}g added ✓`);
+  checkGoalMilestones(prevTotal, state.data.total, state.settings.dailyGoal);
 }
 
 function removeEntry(index) {
@@ -310,6 +323,12 @@ function saveSettings() {
   state.settings.theme = theme;
   applyTheme(theme);
 
+  const fontSize = qs('#font-size-select').value;
+  state.settings.fontSize = fontSize;
+  applyFontSize(fontSize);
+
+  state.settings.haptic = qs('#haptic-toggle').checked;
+
   const weightVal = parseInt(qs('#weight-input').value, 10);
   state.settings.bodyWeight = (weightVal >= 30 && weightVal <= 300) ? weightVal : null;
 
@@ -364,7 +383,68 @@ function renderHistoryModal() {
   qs('#history-streak').textContent = streak > 0
     ? (streak === 1 ? `🔥 1 day streak` : `🔥 ${streak} day streak`)
     : 'No streak yet — hit your goal today!';
+  renderPersonalRecords();
   drawHistoryChart();
+}
+
+function getPersonalRecords() {
+  const all = [
+    ...state.history,
+    { date: state.data.date, total: state.data.total, goal: state.settings.dailyGoal },
+  ];
+  const nonEmpty = all.filter(d => d.total > 0);
+  if (!nonEmpty.length) return null;
+
+  const bestDay = nonEmpty.reduce((a, b) => b.total > a.total ? b : a);
+  const daysMetGoal = nonEmpty.filter(d => d.total >= d.goal).length;
+  const totalDays = nonEmpty.length;
+  const goalRate = totalDays > 0 ? Math.round((daysMetGoal / totalDays) * 100) : 0;
+
+  // Longest streak from all history
+  const goalDates = all.filter(d => d.total >= d.goal).map(d => d.date).sort();
+  let longestStreak = 0;
+  let tempStreak = 0;
+  for (let i = 0; i < goalDates.length; i++) {
+    if (i === 0) {
+      tempStreak = 1;
+    } else {
+      const prev = new Date(goalDates[i - 1]);
+      const curr = new Date(goalDates[i]);
+      const diff = Math.round((curr - prev) / 86400000);
+      tempStreak = diff === 1 ? tempStreak + 1 : 1;
+    }
+    if (tempStreak > longestStreak) longestStreak = tempStreak;
+  }
+
+  return { bestDay, daysMetGoal, totalDays, goalRate, longestStreak };
+}
+
+function renderPersonalRecords() {
+  const rec = getPersonalRecords();
+  const el = qs('#history-records');
+  if (!el) return;
+  if (!rec) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `
+    <div class="records-grid">
+      <div class="record-card">
+        <div class="record-value">${rec.bestDay.total}g</div>
+        <div class="record-label">Best Day</div>
+        <div class="record-sub">${rec.bestDay.date}</div>
+      </div>
+      <div class="record-card">
+        <div class="record-value">${rec.longestStreak}</div>
+        <div class="record-label">Best Streak</div>
+        <div class="record-sub">days</div>
+      </div>
+      <div class="record-card">
+        <div class="record-value">${rec.goalRate}%</div>
+        <div class="record-label">Goal Rate</div>
+        <div class="record-sub">${rec.daysMetGoal}/${rec.totalDays} days</div>
+      </div>
+    </div>`;
 }
 
 function drawHistoryChart() {
@@ -514,6 +594,121 @@ function confirm(message, onConfirm) {
   qs('#confirm-backdrop').classList.add('open');
 }
 
+// ── Haptic feedback ────────────────────────────────────────────────────────
+function haptic(duration) {
+  if (state.settings.haptic && 'vibrate' in navigator) {
+    navigator.vibrate(duration);
+  }
+}
+
+// ── Goal milestone alerts ──────────────────────────────────────────────────
+function checkGoalMilestones(prevTotal, newTotal, goal) {
+  if (goal <= 0) return;
+  const milestones = [
+    { pct: 0.5,  label: '50% of goal reached! 👍',  vibrate: 80 },
+    { pct: 0.75, label: '75% of goal reached! 💪',  vibrate: 100 },
+    { pct: 1.0,  label: '🎉 Daily goal reached!',   vibrate: 200 },
+  ];
+  for (const m of milestones) {
+    const threshold = goal * m.pct;
+    if (prevTotal < threshold && newTotal >= threshold) {
+      setTimeout(() => {
+        showToast(m.label);
+        haptic(m.vibrate);
+        if (m.pct === 1.0) showConfetti();
+      }, 400);
+      break;
+    }
+  }
+}
+
+// ── Confetti ───────────────────────────────────────────────────────────────
+function showConfetti() {
+  const colors = ['#34d399','#10b981','#fbbf24','#60a5fa','#f472b6','#a78bfa'];
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+  for (let i = 0; i < CONFETTI_COUNT; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.setProperty('--x', `${Math.random() * 100}vw`);
+    el.style.setProperty('--delay', `${(Math.random() * 0.6).toFixed(2)}s`);
+    el.style.setProperty('--color', colors[Math.floor(Math.random() * colors.length)]);
+    el.style.setProperty('--size', `${6 + Math.random() * 6}px`);
+    el.style.setProperty('--drift', `${(Math.random() * 120 - 60).toFixed(0)}px`);
+    el.style.setProperty('--rot', `${Math.floor(Math.random() * 720)}deg`);
+    container.appendChild(el);
+  }
+  setTimeout(() => container.remove(), 3200);
+}
+
+// ── Share ──────────────────────────────────────────────────────────────────
+async function shareToday() {
+  const { total } = state.data;
+  const goal = state.settings.dailyGoal;
+  const pct = goal > 0 ? Math.round((total / goal) * 100) : 0;
+  const streak = calculateStreak();
+  const streakStr = streak > 1 ? ` 🔥 ${streak} day streak` : '';
+  const text = `🥗 Protein today: ${total}g / ${goal}g (${pct}%)${streakStr}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Protein Counter', text });
+    } catch (err) {
+      // AbortError means user cancelled the share — that's fine
+      if (err && err.name !== 'AbortError') showToast('Could not share');
+    }
+  } else if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard ✓');
+  } else {
+    showToast(text);
+  }
+}
+
+// ── Import ─────────────────────────────────────────────────────────────────
+function importData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      let changed = false;
+      if (Array.isArray(payload.history)) {
+        // Merge imported history with existing (imported wins on conflict)
+        const map = {};
+        state.history.forEach(h => { map[h.date] = h; });
+        payload.history.forEach(h => { if (h.date) map[h.date] = h; });
+        state.history = Object.values(map).sort((a, b) => a.date.localeCompare(b.date)).slice(-MAX_HISTORY_DAYS);
+        save(STORAGE_KEYS.history, state.history);
+        changed = true;
+      }
+      if (Array.isArray(payload.foods) && payload.foods.length) {
+        state.foods = payload.foods;
+        save(STORAGE_KEYS.foods, state.foods);
+        changed = true;
+      }
+      if (payload.settings && typeof payload.settings === 'object') {
+        const s = payload.settings;
+        if (s.dailyGoal)   state.settings.dailyGoal   = s.dailyGoal;
+        if (s.theme)       { state.settings.theme = s.theme; applyTheme(s.theme); }
+        if (s.bodyWeight)  state.settings.bodyWeight  = s.bodyWeight;
+        save(STORAGE_KEYS.settings, state.settings);
+        changed = true;
+      }
+      if (changed) {
+        render();
+        closeModal('settings-modal');
+        showToast('Data imported ✓');
+      } else {
+        showToast('Nothing to import');
+      }
+    } catch {
+      showToast('Invalid or unsupported file');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── Event bindings ─────────────────────────────────────────────────────────
 function bindEvents() {
   // Quick-add save button
@@ -554,9 +749,11 @@ function bindEvents() {
 
   // Settings open
   qs('#settings-btn').addEventListener('click', () => {
-    qs('#goal-input').value   = state.settings.dailyGoal;
-    qs('#theme-select').value = state.settings.theme || 'dark';
-    qs('#weight-input').value = state.settings.bodyWeight || '';
+    qs('#goal-input').value      = state.settings.dailyGoal;
+    qs('#theme-select').value    = state.settings.theme || 'dark';
+    qs('#font-size-select').value = state.settings.fontSize || 'medium';
+    qs('#haptic-toggle').checked = state.settings.haptic !== false;
+    qs('#weight-input').value    = state.settings.bodyWeight || '';
     openModal('settings-modal');
   });
 
@@ -673,6 +870,28 @@ function bindEvents() {
     if (e.key !== 'Escape') return;
     const open = document.querySelector('.modal-backdrop.open');
     if (open) closeModal(open.id);
+  });
+
+  // Share button
+  qs('#share-btn').addEventListener('click', shareToday);
+
+  // Import button + file input
+  qs('#import-btn').addEventListener('click', () => qs('#import-file').click());
+  qs('#import-file').addEventListener('change', e => {
+    importData(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // Keyboard shortcuts (only when no input is focused)
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'a': case 'A': qs('#protein-amount').focus(); e.preventDefault(); break;
+      case 'h': case 'H': qs('#history-btn').click(); break;
+      case 's': case 'S': qs('#settings-btn').click(); break;
+      case 'm': case 'M': qs('#manage-btn').click(); break;
+    }
   });
 }
 

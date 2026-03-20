@@ -24,6 +24,7 @@
     <h1>🥗 Protein Counter</h1>
     <div class="header-actions">
       <button class="icon-btn" id="history-btn" title="History" aria-label="View history">📊</button>
+      <button class="icon-btn" id="share-btn" title="Share today's summary" aria-label="Share today's summary">📤</button>
       <button class="icon-btn" id="reset-btn" title="Reset today" aria-label="Reset today's count">↺</button>
       <button class="icon-btn" id="manage-btn" title="Manage foods" aria-label="Manage foods">🍽</button>
       <button class="icon-btn" id="settings-btn" title="Settings" aria-label="Settings">⚙</button>
@@ -136,7 +137,35 @@
           <option value="dark">Dark</option>
           <option value="light">Light</option>
           <option value="system">System</option>
+          <option value="high-contrast">High Contrast</option>
         </select>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Font Size</div>
+        <div class="setting-desc">Adjust text size</div>
+      </div>
+      <div class="setting-value">
+        <select id="font-size-select" class="setting-select" aria-label="Font size">
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Haptic Feedback</div>
+        <div class="setting-desc">Vibrate on log (mobile)</div>
+      </div>
+      <div class="setting-value">
+        <label class="toggle-label" aria-label="Haptic feedback">
+          <input type="checkbox" id="haptic-toggle" />
+          <span class="toggle-track"></span>
+        </label>
       </div>
     </div>
 
@@ -148,6 +177,17 @@
       <div class="setting-value" style="gap:6px">
         <button class="btn btn-sm btn-secondary" id="export-csv-btn">CSV</button>
         <button class="btn btn-sm btn-secondary" id="export-json-btn">JSON</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Import Data</div>
+        <div class="setting-desc">Restore from JSON backup</div>
+      </div>
+      <div class="setting-value">
+        <button class="btn btn-sm btn-secondary" id="import-btn">Import</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" aria-label="Import JSON backup file" />
       </div>
     </div>
 
@@ -231,6 +271,7 @@
       <button class="modal-close" aria-label="Close history">✕</button>
     </div>
     <p class="history-streak" id="history-streak" aria-live="polite"></p>
+    <div id="history-records" class="history-records"></div>
     <div class="history-chart-wrap">
       <canvas id="history-canvas" aria-label="Weekly protein intake chart"
               aria-describedby="history-note" role="img"></canvas>
