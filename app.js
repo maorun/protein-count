@@ -128,6 +128,7 @@ function render() {
   renderProgress();
   renderFoods();
   renderLog();
+  renderTips();
 }
 
 function renderProgress() {
@@ -213,6 +214,59 @@ function renderLog() {
         <button class="log-item-del" data-index="${realIndex}" aria-label="Remove entry" title="Remove">✕</button>
       </div>`;
   }).join('');
+}
+
+// ── Tips & Tricks ──────────────────────────────────────────────────────────
+function getTips(remaining) {
+  if (remaining >= 60) {
+    return [
+      { icon: '🍗', title: 'Chicken breast (200g)', desc: '~62g protein — covers most of your remaining goal in one meal.' },
+      { icon: '🐟', title: 'Tuna + protein shake', desc: 'A tuna can (100g, 26g) combined with a whey shake (25g) gives you 51g.' },
+      { icon: '💡', title: 'Plan your next meal', desc: 'A 200g serving of lean meat (chicken, beef, or fish) delivers 50–60g easily.' },
+    ];
+  } else if (remaining >= 30) {
+    return [
+      { icon: '🥤', title: 'Whey protein shake', desc: '~25g protein — quick and convenient to close the gap.' },
+      { icon: '🐟', title: 'Tuna (100g)', desc: '~26g protein — add to a salad or toast for a balanced snack.' },
+      { icon: '🫙', title: 'Greek yogurt + cottage cheese', desc: '~26g combined — a great high-protein evening snack.' },
+    ];
+  } else if (remaining >= 10) {
+    return [
+      { icon: '🫙', title: 'Greek yogurt (150g)', desc: '~15g protein — ideal as a dessert substitute or afternoon snack.' },
+      { icon: '🥚', title: 'Two eggs', desc: '~12g protein — scrambled or boiled in just a few minutes.' },
+      { icon: '🧀', title: 'Cottage cheese (100g)', desc: '~11g protein — slow-digesting, great before sleep.' },
+    ];
+  } else {
+    return [
+      { icon: '🥛', title: 'Glass of milk (200ml)', desc: '~7g protein — the easiest way to close the last few grams.' },
+      { icon: '🥚', title: 'One hard-boiled egg', desc: '~6g protein — requires almost no prep time.' },
+      { icon: '🧀', title: 'Small portion of cottage cheese (50g)', desc: '~5g protein — a light snack to finish off your daily goal.' },
+    ];
+  }
+}
+
+function renderTips() {
+  const { total } = state.data;
+  const goal = state.settings.dailyGoal;
+  const remaining = Math.max(goal - total, 0);
+  const section = qs('#tips-section');
+  if (!section) return;
+
+  if (remaining <= 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  const tips = getTips(remaining);
+  qs('#tips-list').innerHTML = tips.map(tip => `
+    <div class="tip-item">
+      <span class="tip-icon" aria-hidden="true">${tip.icon}</span>
+      <div class="tip-content">
+        <div class="tip-title">${escHtml(tip.title)}</div>
+        <div class="tip-desc">${escHtml(tip.desc)}</div>
+      </div>
+    </div>`).join('');
 }
 
 // ── Add entry ──────────────────────────────────────────────────────────────

@@ -388,6 +388,47 @@ input[type="text"]:focus {
   margin: 0 16px;
 }
 
+/* ── Tips & Tricks ───────────────────────────────────────────── */
+.tips-list {
+  margin: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--green-500);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  animation: slide-in .2s ease;
+}
+
+.tip-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.tip-content { flex: 1; min-width: 0; }
+
+.tip-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.tip-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ── Modals ──────────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed;
